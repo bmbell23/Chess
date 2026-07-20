@@ -71,6 +71,17 @@ main { padding: 1.25rem; max-width: 960px; margin: 0 auto; }
     margin: 1rem 0;
 }
 
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.chart-wide { grid-column: 1 / -1; }
+.chart-card h2 { margin: 0 0 0.75rem; font-size: 1rem; color: #c8cdd5; }
+.chart-card canvas { max-height: 320px; }
+
 .mode-card { text-align: center; }
 .mode-name { text-transform: capitalize; color: #9aa3af; font-size: 0.85rem; }
 .mode-rating { font-size: 2rem; font-weight: 700; color: var(--accent); }

@@ -31,10 +31,36 @@
     {% endfor %}
 </section>
 
-<section class="card" id="charts-placeholder">
-    <p>Charts land in the next ticket: rating over time, W/L/D, openings, time-of-day.</p>
+{% if status.synced %}
+<section class="chart-grid">
+    <div class="card chart-card chart-wide">
+        <h2>Rating over time</h2>
+        <canvas id="chart-rating"></canvas>
+    </div>
+    <div class="card chart-card">
+        <h2>Win / draw / loss by mode</h2>
+        <canvas id="chart-wld"></canvas>
+    </div>
+    <div class="card chart-card">
+        <h2>Top openings</h2>
+        <canvas id="chart-openings"></canvas>
+    </div>
+    <div class="card chart-card">
+        <h2>Win rate by hour ({{ settings.tz }})</h2>
+        <canvas id="chart-hours"></canvas>
+    </div>
+    <div class="card chart-card">
+        <h2>Win rate by weekday</h2>
+        <canvas id="chart-weekdays"></canvas>
+    </div>
 </section>
+{% else %}
+<section class="card">
+    <p>No data yet — hit <strong>Sync now</strong> to pull your chess.com history.</p>
+</section>
+{% endif %}
 
 <script src="/static/vendor/chart.umd.js"></script>
 <script src="/static/js/app.js"></script>
+<script src="/static/js/charts.js"></script>
 {% endblock %}
