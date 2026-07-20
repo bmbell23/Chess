@@ -1,0 +1,44 @@
+name: chess
+
+services:
+  chess:
+    build: .
+    container_name: chess_app
+    restart: unless-stopped
+    ports:
+      - "8011:8011"
+    env_file: .env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8011
+      - TZ=America/Denver
+      - DATABASE_URL=sqlite:////app/data/chess.db
+      - ENABLE_SCHEDULERS=true
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - chess_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "2m"
+        max-file: "10"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+networks:
+  chess_network:
+    driver: bridge
