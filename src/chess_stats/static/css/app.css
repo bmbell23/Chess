@@ -32,3 +32,46 @@ main { padding: 1.25rem; max-width: 960px; margin: 0 auto; }
     border-radius: 10px;
     padding: 1.25rem;
 }
+
+.overview-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.overview-head h1 { margin: 0.5rem 0; }
+
+.sync-box {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+    color: #9aa3af;
+}
+
+.btn {
+    background: var(--accent);
+    color: #14171c;
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 44px;
+}
+
+.btn:disabled { opacity: 0.6; cursor: wait; }
+
+.mode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin: 1rem 0;
+}
+
+.mode-card { text-align: center; }
+.mode-name { text-transform: capitalize; color: #9aa3af; font-size: 0.85rem; }
+.mode-rating { font-size: 2rem; font-weight: 700; color: var(--accent); }
+.mode-sub { font-size: 0.8rem; color: #9aa3af; }

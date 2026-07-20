@@ -1,7 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="card">
-    <h1>Chess Stats</h1>
-    <p>Scaffold is up. Sync engine and charts arrive in tickets #3–#7.</p>
+<section class="overview-head">
+    <h1>Overview</h1>
+    <div class="sync-box">
+        <span id="sync-meta">
+            {% if status.synced %}
+                {{ status.total_games }} games · {{ status.months_complete }} months archived
+                · last sync {{ status.last_sync[:16].replace('T', ' ') }} UTC
+            {% else %}
+                never synced
+            {% endif %}
+        </span>
+        <button id="sync-btn" class="btn">Sync now</button>
+    </div>
 </section>
+
+<section class="mode-grid">
+    {% for mode in ['rapid', 'blitz', 'bullet', 'daily'] %}
+        {% set m = status.latest_ratings.get(mode) if status.synced else none %}
+        <div class="card mode-card">
+            <div class="mode-name">{{ mode }}</div>
+            {% if m %}
+                <div class="mode-rating">{{ m.rating }}</div>
+                <div class="mode-sub">best {{ m.best }} · {{ m.record }}</div>
+            {% else %}
+                <div class="mode-rating">—</div>
+                <div class="mode-sub">no games yet</div>
+            {% endif %}
+        </div>
+    {% endfor %}
+</section>
+
+<section class="card" id="charts-placeholder">
+    <p>Charts land in the next ticket: rating over time, W/L/D, openings, time-of-day.</p>
+</section>
+
+<script src="/static/vendor/chart.umd.js"></script>
+<script src="/static/js/app.js"></script>
 {% endblock %}

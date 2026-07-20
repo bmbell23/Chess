@@ -54,6 +54,8 @@ def health():
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
+    from .services.sync import sync_status
+
     return templates.TemplateResponse(
-        request, "index.html", {"settings": settings}
+        request, "index.html", {"settings": settings, "status": sync_status()}
     )

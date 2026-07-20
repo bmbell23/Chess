@@ -1,0 +1,16 @@
+{
+    "name": "Chess Stats",
+    "short_name": "Chess",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#14171c",
+    "theme_color": "#1e232b",
+    "icons": [
+        {
+            "src": "/static/icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        }
+    ]
+}
