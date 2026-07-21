@@ -32,13 +32,69 @@
     const shortDate = (ms) =>
         new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
+    // ---- shared time-frame state (#20): filters rating + quality charts ----
+    let frameRange = null; // [loMs, hiMs] or null = all time
+    const inFrame = (ms) => !frameRange || (ms >= frameRange[0] && ms < frameRange[1]);
+
+    function frameBounds(key) {
+        const now = new Date();
+        const d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        switch (key) {
+            case 'today': return [d0.getTime(), Infinity];
+            case 'week': {
+                const monday = new Date(d0);
+                monday.setDate(d0.getDate() - ((d0.getDay() + 6) % 7));
+                return [monday.getTime(), Infinity];
+            }
+            case 'month': return [new Date(now.getFullYear(), now.getMonth(), 1).getTime(), Infinity];
+            case 'quarter': return [new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1).getTime(), Infinity];
+            case 'ytd': return [new Date(now.getFullYear(), 0, 1).getTime(), Infinity];
+            case '1y': return [now.getTime() - 365 * 864e5, Infinity];
+            case 'all': return null;
+            default: { // a specific year, e.g. "2026"
+                const y = parseInt(key, 10);
+                return [new Date(y, 0, 1).getTime(), new Date(y + 1, 0, 1).getTime()];
+            }
+        }
+    }
+
+    function buildFrameBar(dataYears) {
+        const bar = document.getElementById('timeframe-bar');
+        if (!bar) return;
+        const frames = [
+            ['all', 'All'], ['today', 'Today'], ['week', 'Week'], ['month', 'Month'],
+            ['quarter', 'Quarter'], ['ytd', 'YTD'], ['1y', '1Y'],
+            ...dataYears.map((y) => [String(y), String(y)]),
+        ];
+        bar.innerHTML = frames
+            .map(([k, label]) =>
+                `<button class="frame-btn${k === 'all' ? ' active' : ''}" data-frame="${k}">${label}</button>`)
+            .join('');
+        bar.addEventListener('click', (ev) => {
+            const btn = ev.target.closest('.frame-btn');
+            if (!btn) return;
+            frameRange = frameBounds(btn.dataset.frame);
+            bar.querySelectorAll('.frame-btn').forEach((b) => b.classList.toggle('active', b === btn));
+            renderRating();
+            renderQuality();
+        });
+    }
+
+    let ratingRaw = null;
+    let ratingInstance = null;
+
     async function ratingChart() {
-        const series = await get('/api/v1/charts/rating-history');
-        const datasets = Object.entries(series)
+        ratingRaw = await get('/api/v1/charts/rating-history');
+        renderRating();
+    }
+
+    function renderRating() {
+        if (!ratingRaw) return;
+        const datasets = Object.entries(ratingRaw)
             .filter(([, pts]) => pts.length)
             .map(([mode, pts]) => ({
                 label: mode,
-                data: pts.map((p) => ({ x: toMs(p.t), y: p.r })),
+                data: pts.map((p) => ({ x: toMs(p.t), y: p.r })).filter((p) => inFrame(p.x)),
                 borderColor: MODE_COLORS[mode],
                 backgroundColor: MODE_COLORS[mode],
                 pointRadius: 1.5,
@@ -47,7 +103,8 @@
                 // (bezier tension caused visible loops at dense clusters — #14)
                 cubicInterpolationMode: 'monotone',
             }));
-        new Chart(document.getElementById('chart-rating'), {
+        if (ratingInstance) ratingInstance.destroy();
+        ratingInstance = new Chart(document.getElementById('chart-rating'), {
             type: 'line',
             data: { datasets },
             options: {
@@ -217,9 +274,16 @@
     };
 
     let qualityChartInstance = null;
+    let qualityRaw = null;
 
     async function qualityChart() {
-        const data = await get('/api/v1/charts/move-quality');
+        qualityRaw = await get('/api/v1/charts/move-quality');
+        renderQuality();
+    }
+
+    function renderQuality() {
+        const data = qualityRaw;
+        if (!data) return;
         const meta = document.getElementById('quality-meta');
         const btn = document.getElementById('analyze-btn');
         meta.textContent = `— ${data.analyzed_games} of ${data.total_games} games analyzed`;
@@ -228,7 +292,7 @@
         if (data.analyzed_games > 0) {
             const datasets = Object.entries(data.classes).map(([cls, pts]) => ({
                 label: cls,
-                data: pts.map((p) => ({ x: toMs(p.t), y: p.rate })),
+                data: pts.map((p) => ({ x: toMs(p.t), y: p.rate })).filter((p) => inFrame(p.x)),
                 borderColor: QUALITY_COLORS[cls],
                 backgroundColor: QUALITY_COLORS[cls],
                 pointRadius: 0,
@@ -391,9 +455,15 @@
     }
 
     Promise.allSettled([ratingChart(), wldCharts(), openingsChart(), timeCharts(), qualityChart(), insightsSection()]).then(
-        (results) =>
+        (results) => {
             results
                 .filter((r) => r.status === 'rejected')
-                .forEach((r) => console.error('chart failed:', r.reason))
+                .forEach((r) => console.error('chart failed:', r.reason));
+            const years = new Set();
+            for (const pts of Object.values(ratingRaw ?? {})) {
+                for (const p of pts) years.add(new Date(toMs(p.t)).getFullYear());
+            }
+            buildFrameBar([...years].sort());
+        }
     );
 })();

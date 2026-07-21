@@ -83,6 +83,26 @@ main { padding: 1.25rem; max-width: 960px; margin: 0 auto; }
     margin: 1rem 0;
 }
 
+.timeframe-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0.75rem 0;
+}
+
+.frame-btn {
+    background: var(--panel);
+    color: #9aa3af;
+    border: 1px solid #343b46;
+    border-radius: 999px;
+    padding: 0.3rem 0.85rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.frame-btn:hover { color: var(--text); }
+.frame-btn.active { background: var(--accent); color: #14171c; border-color: var(--accent); font-weight: 600; }
+
 .chart-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
