@@ -342,6 +342,12 @@
                 d.rivals.nemeses.map((e) => rivalRow(e, 'loss', 'bad')).join('') + `</div>`
             );
         }
+        if (d.rivals?.dominees?.length) {
+            lists.push(
+                `<div class="rival-list"><h3>Most defeated — you beat them the most</h3>` +
+                d.rivals.dominees.map((e) => rivalRow(e, 'win', 'good')).join('') + `</div>`
+            );
+        }
         document.getElementById('rival-lists').innerHTML = lists.join('');
 
         new Chart(document.getElementById('chart-fatigue'), {
