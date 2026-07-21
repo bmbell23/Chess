@@ -55,9 +55,19 @@ def health():
 
 
 @app.get("/", response_class=HTMLResponse)
-def index(request: Request):
-    from .services.sync import sync_status
+def index(request: Request, player: str | None = None):
+    from .services.sync import normalize_username, sync_status
 
+    username = normalize_username(player)
+    is_default = username == settings.chesscom_username.strip().lower()
     return templates.TemplateResponse(
-        request, "index.html", {"settings": settings, "status": sync_status()}
+        request,
+        "index.html",
+        {
+            "settings": settings,
+            "status": sync_status(username),
+            "player": username,
+            "is_default": is_default,
+            "search_value": "" if is_default else username,
+        },
     )

@@ -23,7 +23,19 @@ body {
 }
 
 .brand { font-weight: 700; font-size: 1.1rem; }
-.player { color: var(--accent); }
+
+.player-search input {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid #343b46;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    min-width: 200px;
+    font-size: 0.9rem;
+}
+
+.player-search input::placeholder { color: #5b6472; }
+.player-search input:focus { outline: 1px solid var(--accent); }
 
 main { padding: 1.25rem; max-width: 960px; margin: 0 auto; }
 

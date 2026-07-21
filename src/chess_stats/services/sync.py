@@ -24,6 +24,22 @@ _ECO_URL_RE = re.compile(r'\[ECOUrl "([^"]+)"\]')
 
 _MODES = ("chess_rapid", "chess_blitz", "chess_bullet", "chess_daily")
 
+# one sync at a time process-wide (chess.com wants serial; also guards the UI flow)
+_SYNC_RUN_LOCK = __import__("threading").Lock()
+# per-username progress for the UI: {state, months_done, months_total, games, error}
+SYNC_PROGRESS: dict[str, dict] = {}
+
+
+def _progress(username: str, **kw) -> None:
+    SYNC_PROGRESS.setdefault(username, {}).update(kw)
+
+
+def normalize_username(username: str | None) -> str:
+    username = (username or get_settings().chesscom_username).strip().lower()
+    if not username:
+        raise ValueError("no username given and CHESSCOM_USERNAME not configured")
+    return username
+
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -129,7 +145,9 @@ class SyncService:
         now = _utc_now()
         added = skipped_variants = months_skipped = not_modified = 0
 
-        for url in self.client.archives(player.username):
+        archive_urls = self.client.archives(player.username)
+        _progress(player.username, months_total=len(archive_urls), months_done=0)
+        for url in archive_urls:
             year, month = int(url.rsplit("/", 2)[-2]), int(url.rsplit("/", 1)[-1])
             log = db.execute(
                 select(SyncLog).where(
@@ -141,6 +159,8 @@ class SyncService:
 
             if log and log.complete:
                 months_skipped += 1
+                prog = SYNC_PROGRESS.get(player.username, {})
+                _progress(player.username, months_done=prog.get("months_done", 0) + 1)
                 continue
 
             resp = self.client.monthly_games(
@@ -177,6 +197,12 @@ class SyncService:
             log.etag = resp.etag
             log.complete = 1 if is_past else 0
             db.commit()
+            prog = SYNC_PROGRESS.get(player.username, {})
+            _progress(
+                player.username,
+                months_done=prog.get("months_done", 0) + 1,
+                games=prog.get("games", 0) + month_count,
+            )
             logger.info(
                 "synced %s %04d/%02d: +%d games%s",
                 player.username, year, month, month_count,
@@ -191,17 +217,21 @@ class SyncService:
         }
 
     def run_full_sync(self, username: str | None = None) -> dict:
-        settings = get_settings()
-        username = username or settings.chesscom_username
-        if not username:
-            raise ValueError("CHESSCOM_USERNAME is not configured")
-        with SessionLocal() as db:
-            player = self.ensure_player(db, username)
-            snapshots = self.snapshot_stats(db, player)
-            result = self.sync_games(db, player)
-            total = db.execute(
-                select(func.count(Game.id)).where(Game.player_id == player.id)
-            ).scalar_one()
+        username = normalize_username(username)
+        with _SYNC_RUN_LOCK:
+            _progress(username, state="running", error=None, games=0)
+            try:
+                with SessionLocal() as db:
+                    player = self.ensure_player(db, username)
+                    snapshots = self.snapshot_stats(db, player)
+                    result = self.sync_games(db, player)
+                    total = db.execute(
+                        select(func.count(Game.id)).where(Game.player_id == player.id)
+                    ).scalar_one()
+            except Exception as exc:
+                _progress(username, state="error", error=str(exc))
+                raise
+            _progress(username, state="done")
         return {
             "player": username,
             "snapshot_modes": snapshots,
@@ -211,14 +241,14 @@ class SyncService:
         }
 
 
-def sync_status() -> dict:
-    settings = get_settings()
+def sync_status(username: str | None = None) -> dict:
+    username = normalize_username(username)
     with SessionLocal() as db:
         player = db.execute(
-            select(Player).where(Player.username == settings.chesscom_username)
+            select(Player).where(Player.username == username)
         ).scalar_one_or_none()
         if player is None:
-            return {"player": settings.chesscom_username, "synced": False}
+            return {"player": username, "synced": False}
         last_fetch = db.execute(
             select(func.max(SyncLog.fetched_at)).where(SyncLog.player_id == player.id)
         ).scalar_one()

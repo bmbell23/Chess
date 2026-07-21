@@ -8,6 +8,7 @@ from sqlalchemy import select
 from ..config import get_settings
 from ..database import SessionLocal
 from ..models import Game, Player
+from ..services.sync import normalize_username
 
 router = APIRouter(prefix="/api/v1/charts", tags=["charts"])
 
@@ -15,10 +16,9 @@ MODES = ("rapid", "blitz", "bullet", "daily")
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 
-def _player_id(db) -> int:
-    settings = get_settings()
+def _player_id(db, username: str | None = None) -> int:
     player = db.execute(
-        select(Player).where(Player.username == settings.chesscom_username)
+        select(Player).where(Player.username == normalize_username(username))
     ).scalar_one_or_none()
     if player is None:
         raise HTTPException(404, "player not synced yet")
@@ -26,10 +26,10 @@ def _player_id(db) -> int:
 
 
 @router.get("/rating-history")
-def rating_history() -> dict:
+def rating_history(player: str | None = None) -> dict:
     """Per-mode series of (game end time, post-game rating), chronological."""
     with SessionLocal() as db:
-        pid = _player_id(db)
+        pid = _player_id(db, player)
         rows = db.execute(
             select(Game.time_class, Game.end_time, Game.my_rating)
             .where(Game.player_id == pid, Game.my_rating.is_not(None))
@@ -43,10 +43,10 @@ def rating_history() -> dict:
 
 
 @router.get("/wld")
-def win_loss_draw() -> dict:
+def win_loss_draw(player: str | None = None) -> dict:
     """W/L/D by mode, by color, and by month."""
     with SessionLocal() as db:
-        pid = _player_id(db)
+        pid = _player_id(db, player)
         rows = db.execute(
             select(Game.time_class, Game.color, Game.end_time, Game.result).where(
                 Game.player_id == pid
@@ -68,10 +68,10 @@ def win_loss_draw() -> dict:
 
 
 @router.get("/openings")
-def openings(limit: int = 10, min_games: int = 3) -> list[dict]:
+def openings(limit: int = 10, min_games: int = 3, player: str | None = None) -> list[dict]:
     """Most-played openings with W/L/D and win rate."""
     with SessionLocal() as db:
-        pid = _player_id(db)
+        pid = _player_id(db, player)
         rows = db.execute(
             select(Game.eco, Game.opening_name, Game.result).where(
                 Game.player_id == pid, Game.eco.is_not(None)
@@ -96,13 +96,13 @@ def openings(limit: int = 10, min_games: int = 3) -> list[dict]:
 
 
 @router.get("/time-buckets")
-def time_buckets() -> dict:
+def time_buckets(player: str | None = None) -> dict:
     """Win rate by local hour-of-day and day-of-week (games stored UTC)."""
     settings = get_settings()
     tz = ZoneInfo(settings.tz)
     utc = ZoneInfo("UTC")
     with SessionLocal() as db:
-        pid = _player_id(db)
+        pid = _player_id(db, player)
         rows = db.execute(
             select(Game.end_time, Game.result).where(Game.player_id == pid)
         ).all()

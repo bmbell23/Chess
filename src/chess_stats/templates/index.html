@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="overview-head">
-    <h1>Overview</h1>
+    <h1>{{ 'Overview' if is_default else player }}</h1>
     <div class="sync-box">
         <span id="sync-meta">
             {% if status.synced %}
@@ -55,8 +55,11 @@
     </div>
 </section>
 {% else %}
-<section class="card">
-    <p>No data yet — hit <strong>Sync now</strong> to pull your chess.com history.</p>
+<section class="card" id="first-sync" data-player="{{ player }}">
+    <p id="first-sync-text">Fetching <strong>{{ player }}</strong> from chess.com…</p>
+    <p class="mode-sub">First sync of an account with years of games takes a few minutes
+    (chess.com requires one request at a time). Past months are cached forever —
+    repeat visits are instant.</p>
 </section>
 {% endif %}
 

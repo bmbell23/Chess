@@ -1,6 +1,16 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
@@ -10,7 +20,9 @@ class Game(Base):
     __tablename__ = "games"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    uuid: Mapped[str] = mapped_column(String(64), unique=True)  # dedupe key
+    # dedupe key per player — NOT globally unique: when two tracked players
+    # played each other, the same game uuid exists once under each player
+    uuid: Mapped[str] = mapped_column(String(64))
     url: Mapped[str | None] = mapped_column(String(256))
     player_id: Mapped[int] = mapped_column(ForeignKey("players.id"))
 
@@ -35,6 +47,7 @@ class Game(Base):
     player: Mapped["Player"] = relationship(back_populates="games")  # noqa: F821
 
     __table_args__ = (
+        UniqueConstraint("player_id", "uuid", name="uq_games_player_uuid"),
         Index("ix_games_player_end_time", "player_id", "end_time"),
         Index("ix_games_player_time_class", "player_id", "time_class"),
     )

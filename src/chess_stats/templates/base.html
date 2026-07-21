@@ -7,12 +7,17 @@
     <link rel="manifest" href="/static/manifest.json">
     <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
     <meta name="theme-color" content="#1e232b">
+    <meta name="player" content="{{ '' if is_default | default(true) else player }}">
     <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body>
     <header class="topbar">
         <span class="brand">♞ {{ settings.app_name }}</span>
-        <span class="player">{{ settings.chesscom_username }}</span>
+        <form class="player-search" action="/" method="get">
+            <input type="search" name="player" autocomplete="off" spellcheck="false"
+                   placeholder="{{ settings.chesscom_username }}"
+                   value="{{ search_value | default('') }}">
+        </form>
     </header>
     <main>{% block content %}{% endblock %}</main>
 </body>

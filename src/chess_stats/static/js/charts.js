@@ -16,9 +16,14 @@
     };
     const WLD_COLORS = { win: '#81b64c', draw: '#96928f', loss: '#fa412d' };
 
+    const PLAYER = document.querySelector('meta[name="player"]')?.content || '';
+
     const get = async (path) => {
-        const resp = await fetch(path);
-        if (!resp.ok) throw new Error(`${path} → ${resp.status}`);
+        const url = PLAYER
+            ? `${path}${path.includes('?') ? '&' : '?'}player=${encodeURIComponent(PLAYER)}`
+            : path;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`${url} → ${resp.status}`);
         return resp.json();
     };
 
