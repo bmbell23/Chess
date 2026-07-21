@@ -375,6 +375,7 @@
             "also counts daily puzzles and lessons, which aren't in the public API.";
         const days = volumeRaw.days.filter((d) =>
             inFrame(new Date(d.date + 'T12:00:00').getTime()));
+        renderSummary(days);
         if (volumeInstance) volumeInstance.destroy();
         volumeInstance = new Chart(document.getElementById('chart-volume'), {
             data: {
@@ -418,6 +419,38 @@
         return `<div class="tile ${tone ?? ''}"><div class="t-label">${label}</div>` +
                `<div class="t-value">${value ?? '—'}</div>` +
                `<div class="t-sub">${sub ?? ''}</div></div>`;
+    }
+
+    const fmtDuration = (min) => {
+        const h = Math.floor(min / 60);
+        return h ? `${h}h ${Math.round(min % 60)}m` : `${Math.round(min)}m`;
+    };
+
+    function renderSummary(days) {
+        const el = document.getElementById('summary-tiles');
+        if (!el) return;
+        const active = days.filter((d) => d.games > 0);
+        const totalGames = days.reduce((s, d) => s + d.games, 0);
+        const totalMin = days.reduce((s, d) => s + d.minutes, 0);
+        const n = active.length || 1;
+        const busiest = active.reduce((a, d) => (d.games > (a?.games ?? -1) ? d : a), null);
+        const longestMin = active.reduce((a, d) => (d.minutes > (a?.minutes ?? -1) ? d : a), null);
+        // % of the calendar span in-frame that had a game
+        const span = days.length ? days.length : 1;
+        const label = document.querySelector('.frame-btn.active')?.textContent || 'All';
+        document.getElementById('summary-frame').textContent = `— ${label}`;
+        el.innerHTML = [
+            tile('Avg games / day', (totalGames / n).toFixed(1), `over ${n} active days`),
+            tile('Avg time / day', fmtDuration(totalMin / n), 'live games only'),
+            tile('Total games', totalGames, `${active.length} active days`),
+            tile('Total time', fmtDuration(totalMin), 'live games only'),
+            tile('Consistency', `${Math.round((100 * active.length) / span)}%`,
+                `played ${active.length} of ${span} days`),
+            tile('Busiest day', busiest ? `${busiest.games} games` : null,
+                busiest ? busiest.date : ''),
+            tile('Longest day', longestMin ? fmtDuration(longestMin.minutes) : null,
+                longestMin ? longestMin.date : ''),
+        ].join('');
     }
 
     async function insightsSection() {
