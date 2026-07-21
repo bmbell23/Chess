@@ -53,6 +53,13 @@
         <h2>Win rate by weekday</h2>
         <canvas id="chart-weekdays"></canvas>
     </div>
+    <div class="card chart-card chart-wide">
+        <h2>Move quality over time <span class="mode-sub" id="quality-meta"></span></h2>
+        <p class="mode-sub">Cumulative counts from our own Stockfish analysis —
+        approximates chess.com's labels, won't match Game Review exactly.</p>
+        <canvas id="chart-quality"></canvas>
+        <button id="analyze-btn" class="btn" hidden>Analyze games</button>
+    </div>
 </section>
 {% else %}
 <section class="card" id="first-sync" data-player="{{ player }}">

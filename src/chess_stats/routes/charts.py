@@ -126,3 +126,35 @@ def time_buckets(player: str | None = None) -> dict:
             for i, b in enumerate(days)
         ],
     }
+
+
+@router.get("/move-quality")
+def move_quality(player: str | None = None) -> dict:
+    """Cumulative move-quality counts over time (our Stockfish approximation)."""
+    from ..models import MoveStats
+    from ..services.analysis import CLASSES
+
+    with SessionLocal() as db:
+        pid = _player_id(db, player)
+        total_games = db.execute(
+            select(Game.id).where(Game.player_id == pid)
+        ).all()
+        rows = db.execute(
+            select(Game.end_time, MoveStats)
+            .join(MoveStats, MoveStats.game_id == Game.id)
+            .where(Game.player_id == pid)
+            .order_by(Game.end_time)
+        ).all()
+    running = dict.fromkeys(CLASSES, 0)
+    series: dict[str, list] = {c: [] for c in CLASSES}
+    for end_time, stats in rows:
+        t = end_time.isoformat()
+        for c in CLASSES:
+            running[c] += getattr(stats, c)
+            series[c].append({"t": t, "v": running[c]})
+    return {
+        "classes": series,
+        "analyzed_games": len(rows),
+        "total_games": len(total_games),
+        "totals": running,
+    }

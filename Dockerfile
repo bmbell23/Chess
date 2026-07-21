@@ -5,7 +5,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     TZ=America/Denver
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl tzdata \
+    && apt-get install -y --no-install-recommends curl tzdata stockfish \
+    && ln -s /usr/games/stockfish /usr/local/bin/stockfish \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

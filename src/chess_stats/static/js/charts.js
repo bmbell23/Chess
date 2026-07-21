@@ -203,7 +203,95 @@
         });
     }
 
-    Promise.allSettled([ratingChart(), wldCharts(), openingsChart(), timeCharts()]).then(
+    const QUALITY_COLORS = {
+        brilliant: '#26c2a3',
+        great: '#5c8bb0',
+        best: '#81b64c',
+        excellent: '#a8c26a',
+        good: '#cdd0a5',
+        inaccuracy: '#f7c045',
+        mistake: '#ff9f5a',
+        blunder: '#fa412d',
+    };
+
+    let qualityChartInstance = null;
+
+    async function qualityChart() {
+        const data = await get('/api/v1/charts/move-quality');
+        const meta = document.getElementById('quality-meta');
+        const btn = document.getElementById('analyze-btn');
+        meta.textContent = `— ${data.analyzed_games} of ${data.total_games} games analyzed`;
+        btn.hidden = data.analyzed_games >= data.total_games;
+
+        if (data.analyzed_games > 0) {
+            const datasets = Object.entries(data.classes).map(([cls, pts]) => ({
+                label: cls,
+                data: pts.map((p) => ({ x: toMs(p.t), y: p.v })),
+                borderColor: QUALITY_COLORS[cls],
+                backgroundColor: QUALITY_COLORS[cls],
+                pointRadius: 0,
+                borderWidth: 2,
+                tension: 0.1,
+            }));
+            if (qualityChartInstance) qualityChartInstance.destroy();
+            qualityChartInstance = new Chart(document.getElementById('chart-quality'), {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            ticks: { maxTicksLimit: 8, callback: (v) => shortDate(v) },
+                        },
+                        y: { title: { display: true, text: 'cumulative moves' } },
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => shortDate(items[0].parsed.x),
+                            },
+                        },
+                    },
+                },
+            });
+        }
+    }
+
+    const analyzeBtn = document.getElementById('analyze-btn');
+    if (analyzeBtn) {
+        analyzeBtn.addEventListener('click', async () => {
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = 'Analyzing…';
+            const q = PLAYER ? `?player=${encodeURIComponent(PLAYER)}` : '';
+            const start = await fetch(`/api/v1/analysis${q}`, { method: 'POST' });
+            if (!start.ok) {
+                analyzeBtn.textContent = 'Analysis unavailable';
+                return;
+            }
+            const poll = setInterval(async () => {
+                try {
+                    const p = await (await fetch(`/api/v1/analysis/progress${q}`)).json();
+                    if (p.state === 'error') {
+                        clearInterval(poll);
+                        analyzeBtn.textContent = 'Analysis failed — retry';
+                        analyzeBtn.disabled = false;
+                    } else if (p.state === 'done') {
+                        clearInterval(poll);
+                        analyzeBtn.textContent = 'Analyze games';
+                        analyzeBtn.disabled = false;
+                        qualityChart();
+                    } else if (p.total) {
+                        analyzeBtn.textContent = `Analyzing… ${p.done ?? 0}/${p.total}`;
+                        if ((p.done ?? 0) % 25 === 0) qualityChart();
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+            }, 2000);
+        });
+    }
+
+    Promise.allSettled([ratingChart(), wldCharts(), openingsChart(), timeCharts(), qualityChart()]).then(
         (results) =>
             results
                 .filter((r) => r.status === 'rejected')
