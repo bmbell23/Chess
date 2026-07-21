@@ -151,15 +151,24 @@ def move_quality(player: str | None = None) -> dict:
             .where(Game.player_id == pid)
             .order_by(Game.end_time)
         ).all()
+    # rolling rate per 100 moves over a trailing window — the "am I blundering
+    # less often" view (#19); cumulative counts retired per Brandon
+    WINDOW = 20
     running = dict.fromkeys(CLASSES, 0)
     series: dict[str, list] = {c: [] for c in CLASSES}
-    for end_time, stats in rows:
-        t = end_time.isoformat()
+    stats_list = [(end_time, stats) for end_time, stats in rows]
+    for i, (end_time, stats) in enumerate(stats_list):
         for c in CLASSES:
             running[c] += getattr(stats, c)
-            series[c].append({"t": t, "v": running[c]})
+        window = stats_list[max(0, i - WINDOW + 1): i + 1]
+        window_moves = sum(s.moves for _, s in window) or 1
+        t = end_time.isoformat()
+        for c in CLASSES:
+            rate = 100 * sum(getattr(s, c) for _, s in window) / window_moves
+            series[c].append({"t": t, "rate": round(rate, 2)})
     return {
         "classes": series,
+        "window_games": WINDOW,
         "analyzed_games": len(rows),
         "total_games": len(total_games),
         "totals": running,

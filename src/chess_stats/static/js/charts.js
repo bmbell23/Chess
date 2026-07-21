@@ -228,7 +228,7 @@
         if (data.analyzed_games > 0) {
             const datasets = Object.entries(data.classes).map(([cls, pts]) => ({
                 label: cls,
-                data: pts.map((p) => ({ x: toMs(p.t), y: p.v })),
+                data: pts.map((p) => ({ x: toMs(p.t), y: p.rate })),
                 borderColor: QUALITY_COLORS[cls],
                 backgroundColor: QUALITY_COLORS[cls],
                 pointRadius: 0,
@@ -245,7 +245,7 @@
                             type: 'linear',
                             ticks: { maxTicksLimit: 8, callback: (v) => shortDate(v) },
                         },
-                        y: { title: { display: true, text: 'cumulative moves' } },
+                        y: { title: { display: true, text: `per 100 moves (${data.window_games}-game rolling)` } },
                     },
                     plugins: {
                         tooltip: {
