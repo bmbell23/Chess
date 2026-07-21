@@ -79,18 +79,44 @@
         const modes = Object.keys(wld.by_mode).filter(
             (m) => wld.by_mode[m].win + wld.by_mode[m].loss + wld.by_mode[m].draw > 0
         );
+        const totals = Object.fromEntries(
+            modes.map((m) => [
+                m,
+                wld.by_mode[m].win + wld.by_mode[m].draw + wld.by_mode[m].loss,
+            ])
+        );
         new Chart(document.getElementById('chart-wld'), {
             type: 'bar',
             data: {
                 labels: modes,
                 datasets: ['win', 'draw', 'loss'].map((k) => ({
                     label: k,
-                    data: modes.map((m) => wld.by_mode[m][k]),
+                    // 100%-stacked: normalized so modes are comparable
+                    data: modes.map((m) => (100 * wld.by_mode[m][k]) / totals[m]),
                     backgroundColor: WLD_COLORS[k],
                 })),
             },
             options: {
-                scales: { x: { stacked: true }, y: { stacked: true } },
+                scales: {
+                    x: { stacked: true },
+                    y: {
+                        stacked: true,
+                        min: 0,
+                        max: 100,
+                        ticks: { callback: (v) => v + '%' },
+                    },
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (item) => {
+                                const mode = modes[item.dataIndex];
+                                const count = wld.by_mode[mode][item.dataset.label];
+                                return `${item.dataset.label}: ${item.parsed.y.toFixed(1)}% (${count} of ${totals[mode]} games)`;
+                            },
+                        },
+                    },
+                },
             },
         });
     }
