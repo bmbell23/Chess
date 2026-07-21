@@ -38,6 +38,13 @@
         <h2>Rating over time</h2>
         <canvas id="chart-rating"></canvas>
     </div>
+    <div class="card chart-card chart-wide">
+        <h2>Move quality rate over time <span class="mode-sub" id="quality-meta"></span></h2>
+        <p class="mode-sub">Each class as moves per 100, rolling window — falling blunder/mistake
+        lines mean you're improving. Our own Stockfish analysis; approximates chess.com's labels.</p>
+        <canvas id="chart-quality"></canvas>
+        <button id="analyze-btn" class="btn" hidden>Analyze games</button>
+    </div>
     <div class="card chart-card">
         <h2>Win / draw / loss by mode</h2>
         <canvas id="chart-wld"></canvas>
@@ -68,13 +75,6 @@
                 <canvas id="chart-gap"></canvas>
             </div>
         </div>
-    </div>
-    <div class="card chart-card chart-wide">
-        <h2>Move quality rate over time <span class="mode-sub" id="quality-meta"></span></h2>
-        <p class="mode-sub">Each class as moves per 100, rolling window — falling blunder/mistake
-        lines mean you're improving. Our own Stockfish analysis; approximates chess.com's labels.</p>
-        <canvas id="chart-quality"></canvas>
-        <button id="analyze-btn" class="btn" hidden>Analyze games</button>
     </div>
 </section>
 {% else %}

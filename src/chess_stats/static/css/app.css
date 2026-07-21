@@ -88,6 +88,12 @@ main { padding: 1.25rem; max-width: 960px; margin: 0 auto; }
     flex-wrap: wrap;
     gap: 0.4rem;
     margin: 0.75rem 0;
+    /* sticky so the filter stays reachable at the bottom charts (#23) */
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    padding: 0.6rem 0;
 }
 
 .frame-btn {
