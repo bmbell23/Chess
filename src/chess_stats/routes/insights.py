@@ -205,4 +205,37 @@ def insights(player: str | None = None) -> dict:
         "tilt": tilt,
         "performance": performance,
         "terminations": terminations,
+        "rivals": _rivals(games),
+    }
+
+
+def _rivals(games) -> dict:
+    """Head-to-head aggregation. Nemesis = they beat me most (#17);
+    dominee = I beat them most (#18)."""
+    h2h: dict[str, dict] = {}
+    for g in games:
+        if not g.opponent:
+            continue
+        entry = h2h.setdefault(
+            g.opponent,
+            {"opponent": g.opponent, "win": 0, "loss": 0, "draw": 0,
+             "modes": set(), "last_played": g.end_time},
+        )
+        entry[g.result] += 1
+        entry["modes"].add(g.time_class)
+        entry["last_played"] = max(entry["last_played"], g.end_time)
+
+    def pack(entry):
+        return {
+            **{k: entry[k] for k in ("opponent", "win", "loss", "draw")},
+            "games": entry["win"] + entry["loss"] + entry["draw"],
+            "modes": sorted(entry["modes"]),
+            "last_played": entry["last_played"].strftime("%Y-%m-%d"),
+        }
+
+    nemeses = sorted(h2h.values(), key=lambda e: (-e["loss"], -(e["win"] + e["loss"] + e["draw"])))
+    dominees = sorted(h2h.values(), key=lambda e: (-e["win"], -(e["win"] + e["loss"] + e["draw"])))
+    return {
+        "nemeses": [pack(e) for e in nemeses[:5] if e["loss"] > 0],
+        "dominees": [pack(e) for e in dominees[:5] if e["win"] > 0],
     }

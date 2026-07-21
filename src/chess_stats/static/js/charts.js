@@ -331,6 +331,19 @@
         ];
         el.innerHTML = tiles.join('');
 
+        const rivalRow = (e, keyField, cls) =>
+            `<div class="rival-row"><span class="r-name">${e.opponent}</span>` +
+            `<span class="r-rec"><span class="r-key ${cls}">${e[keyField]}</span>` +
+            ` · ${e.win}W-${e.loss}L-${e.draw}D · ${e.modes.join('/')}</span></div>`;
+        const lists = [];
+        if (d.rivals?.nemeses?.length) {
+            lists.push(
+                `<div class="rival-list"><h3>Nemesis — they beat you the most</h3>` +
+                d.rivals.nemeses.map((e) => rivalRow(e, 'loss', 'bad')).join('') + `</div>`
+            );
+        }
+        document.getElementById('rival-lists').innerHTML = lists.join('');
+
         new Chart(document.getElementById('chart-fatigue'), {
             type: 'bar',
             data: {
