@@ -77,6 +77,7 @@
             bar.querySelectorAll('.frame-btn').forEach((b) => b.classList.toggle('active', b === btn));
             renderRating();
             renderQuality();
+            renderVolume();
         });
     }
 
@@ -357,6 +358,62 @@
         });
     }
 
+    let volumeRaw = null;
+    let volumeInstance = null;
+
+    async function volumeChart() {
+        volumeRaw = await get('/api/v1/charts/daily-volume');
+        renderVolume();
+    }
+
+    function renderVolume() {
+        if (!volumeRaw) return;
+        const meta = document.getElementById('volume-meta');
+        meta.textContent = `— game-day streak: ${volumeRaw.streak_current} current · ` +
+            `${volumeRaw.streak_longest} longest · ${volumeRaw.days_played} days played`;
+        meta.title = "Days you played a game. chess.com's streak is higher because it " +
+            "also counts daily puzzles and lessons, which aren't in the public API.";
+        const days = volumeRaw.days.filter((d) =>
+            inFrame(new Date(d.date + 'T12:00:00').getTime()));
+        if (volumeInstance) volumeInstance.destroy();
+        volumeInstance = new Chart(document.getElementById('chart-volume'), {
+            data: {
+                labels: days.map((d) => d.date.slice(5)),
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'games',
+                        data: days.map((d) => d.games),
+                        backgroundColor: MODE_COLORS.rapid,
+                        yAxisID: 'y',
+                    },
+                    {
+                        type: 'line',
+                        label: 'minutes (live games)',
+                        data: days.map((d) => d.minutes),
+                        borderColor: MODE_COLORS.blitz,
+                        backgroundColor: MODE_COLORS.blitz,
+                        pointRadius: 1.5,
+                        borderWidth: 2,
+                        cubicInterpolationMode: 'monotone',
+                        yAxisID: 'y1',
+                    },
+                ],
+            },
+            options: {
+                scales: {
+                    y: { title: { display: true, text: 'games' }, beginAtZero: true },
+                    y1: {
+                        position: 'right',
+                        title: { display: true, text: 'minutes' },
+                        beginAtZero: true,
+                        grid: { drawOnChartArea: false },
+                    },
+                },
+            },
+        });
+    }
+
     function tile(label, value, sub, tone) {
         return `<div class="tile ${tone ?? ''}"><div class="t-label">${label}</div>` +
                `<div class="t-value">${value ?? '—'}</div>` +
@@ -454,7 +511,7 @@
         });
     }
 
-    Promise.allSettled([ratingChart(), wldCharts(), openingsChart(), timeCharts(), qualityChart(), insightsSection()]).then(
+    Promise.allSettled([ratingChart(), wldCharts(), openingsChart(), timeCharts(), qualityChart(), volumeChart(), insightsSection()]).then(
         (results) => {
             results
                 .filter((r) => r.status === 'rejected')

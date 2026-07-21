@@ -173,3 +173,75 @@ def move_quality(player: str | None = None) -> dict:
         "total_games": len(total_games),
         "totals": running,
     }
+
+
+_PGN_HDR = {
+    k: __import__("re").compile(r'\[' + k + r' "([^"]+)"\]')
+    for k in ("UTCDate", "UTCTime", "EndDate", "EndTime")
+}
+_LIVE = ("rapid", "blitz", "bullet")
+
+
+@router.get("/daily-volume")
+def daily_volume(player: str | None = None) -> dict:
+    """Games and minutes played per local day, plus days-played streaks (#21).
+    Minutes come from live-game PGN start/end headers; daily games count toward
+    games/streaks but not minutes (they run asynchronously)."""
+    from datetime import date, datetime, timedelta
+
+    settings = get_settings()
+    tz = ZoneInfo(settings.tz)
+    utc = ZoneInfo("UTC")
+    with SessionLocal() as db:
+        pid = _player_id(db, player)
+        rows = db.execute(
+            select(Game.end_time, Game.time_class, Game.pgn).where(Game.player_id == pid)
+        ).all()
+
+    per_day: dict[str, dict] = {}
+    for end_time, time_class, pgn in rows:
+        day = end_time.replace(tzinfo=utc).astimezone(tz).date().isoformat()
+        entry = per_day.setdefault(day, {"games": 0, "seconds": 0})
+        entry["games"] += 1
+        if pgn and time_class in _LIVE:
+            hdr = {k: rx.search(pgn) for k, rx in _PGN_HDR.items()}
+            if all(hdr.values()):
+                try:
+                    start = datetime.strptime(
+                        f"{hdr['UTCDate'].group(1)} {hdr['UTCTime'].group(1)}", "%Y.%m.%d %H:%M:%S"
+                    )
+                    end = datetime.strptime(
+                        f"{hdr['EndDate'].group(1)} {hdr['EndTime'].group(1)}", "%Y.%m.%d %H:%M:%S"
+                    )
+                    dur = (end - start).total_seconds()
+                    if 0 < dur <= 6 * 3600:
+                        entry["seconds"] += dur
+                except ValueError:
+                    pass
+
+    played = sorted(date.fromisoformat(d) for d in per_day)
+    longest = run = 0
+    prev = None
+    for d in played:
+        run = run + 1 if prev is not None and (d - prev).days == 1 else 1
+        longest = max(longest, run)
+        prev = d
+    today = datetime.now(tz).date()
+    current = 0
+    if played:
+        played_set = set(played)
+        cursor = today if today in played_set else today - timedelta(days=1)
+        while cursor in played_set:
+            current += 1
+            cursor -= timedelta(days=1)
+
+    return {
+        "tz": settings.tz,
+        "streak_current": current,
+        "streak_longest": longest,
+        "days_played": len(played),
+        "days": [
+            {"date": d, "games": v["games"], "minutes": round(v["seconds"] / 60)}
+            for d, v in sorted(per_day.items())
+        ],
+    }
