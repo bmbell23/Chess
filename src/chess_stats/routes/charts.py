@@ -32,7 +32,13 @@ def rating_history(player: str | None = None) -> dict:
         pid = _player_id(db, player)
         rows = db.execute(
             select(Game.time_class, Game.end_time, Game.my_rating)
-            .where(Game.player_id == pid, Game.my_rating.is_not(None))
+            .where(
+                Game.player_id == pid,
+                Game.my_rating.is_not(None),
+                # unrated games don't move ratings — their reported rating is
+                # junk for a progression chart (found via #14's 936→420→956 dip)
+                Game.rated.is_(True),
+            )
             .order_by(Game.end_time)
         ).all()
     series: dict[str, list] = {m: [] for m in MODES}

@@ -41,9 +41,11 @@
                 data: pts.map((p) => ({ x: toMs(p.t), y: p.r })),
                 borderColor: MODE_COLORS[mode],
                 backgroundColor: MODE_COLORS[mode],
-                pointRadius: 0,
+                pointRadius: 1.5,
                 borderWidth: 2,
-                tension: 0.25,
+                // monotone: smooth but can never overshoot backwards/vertically
+                // (bezier tension caused visible loops at dense clusters — #14)
+                cubicInterpolationMode: 'monotone',
             }));
         new Chart(document.getElementById('chart-rating'), {
             type: 'line',
@@ -231,7 +233,7 @@
                 backgroundColor: QUALITY_COLORS[cls],
                 pointRadius: 0,
                 borderWidth: 2,
-                tension: 0.1,
+                cubicInterpolationMode: 'monotone',
             }));
             if (qualityChartInstance) qualityChartInstance.destroy();
             qualityChartInstance = new Chart(document.getElementById('chart-quality'), {
