@@ -91,6 +91,34 @@ main { padding: 1.25rem; max-width: 960px; margin: 0 auto; }
 }
 
 .chart-wide { grid-column: 1 / -1; }
+
+.tile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+}
+
+.tile {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 0.7rem 0.8rem;
+}
+
+.tile .t-label { font-size: 0.72rem; color: #9aa3af; text-transform: uppercase; letter-spacing: 0.04em; }
+.tile .t-value { font-size: 1.35rem; font-weight: 700; color: var(--text); margin-top: 0.15rem; }
+.tile .t-sub { font-size: 0.75rem; color: #9aa3af; }
+.tile.t-good .t-value { color: var(--accent); }
+.tile.t-bad .t-value { color: #fa412d; }
+
+.insight-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.insight-charts h3 { font-size: 0.85rem; color: #c8cdd5; margin: 0 0 0.5rem; }
+.insight-charts canvas { max-height: 240px; }
 .chart-card h2 { margin: 0 0 0.75rem; font-size: 1rem; color: #c8cdd5; }
 .chart-card canvas { max-height: 320px; }
 

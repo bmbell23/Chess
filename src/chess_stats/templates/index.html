@@ -53,6 +53,20 @@
         <h2>Win rate by weekday</h2>
         <canvas id="chart-weekdays"></canvas>
     </div>
+    <div class="card chart-card chart-wide" id="insights-card">
+        <h2>Insights</h2>
+        <div class="tile-grid" id="insight-tiles"></div>
+        <div class="insight-charts">
+            <div>
+                <h3>Session fatigue — win rate by game # in session</h3>
+                <canvas id="chart-fatigue"></canvas>
+            </div>
+            <div>
+                <h3>Win rate by opponent rating gap</h3>
+                <canvas id="chart-gap"></canvas>
+            </div>
+        </div>
+    </div>
     <div class="card chart-card chart-wide">
         <h2>Move quality over time <span class="mode-sub" id="quality-meta"></span></h2>
         <p class="mode-sub">Cumulative counts from our own Stockfish analysis —

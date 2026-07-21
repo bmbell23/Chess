@@ -293,7 +293,85 @@
         });
     }
 
-    Promise.allSettled([ratingChart(), wldCharts(), openingsChart(), timeCharts(), qualityChart()]).then(
+    function tile(label, value, sub, tone) {
+        return `<div class="tile ${tone ?? ''}"><div class="t-label">${label}</div>` +
+               `<div class="t-value">${value ?? '—'}</div>` +
+               `<div class="t-sub">${sub ?? ''}</div></div>`;
+    }
+
+    async function insightsSection() {
+        const d = await get('/api/v1/insights');
+        const el = document.getElementById('insight-tiles');
+        const r = d.records, t = d.tilt, p = d.performance, x = d.terminations;
+        const cur = r.streaks_overall.current;
+        const tiles = [
+            tile('Current streak',
+                cur.length ? `${cur.length} ${cur.kind}${cur.length > 1 ? 's' : ''}` : '0',
+                'all modes', cur.kind === 'win' ? 't-good' : cur.kind === 'loss' ? 't-bad' : ''),
+            tile('Longest win streak', r.streaks_overall.longest_win, 'all modes', 't-good'),
+            tile('Longest skid', r.streaks_overall.longest_loss, 'all modes', 't-bad'),
+            tile('Biggest upset', r.biggest_upset ? `+${r.biggest_upset.gap}` : null,
+                r.biggest_upset ? `beat ${r.biggest_upset.opponent} (${r.biggest_upset.opponent_rating})` : '', 't-good'),
+            tile('Fastest mate', r.fastest_mate_moves ? `${r.fastest_mate_moves} moves` : null, 'delivered by you'),
+            tile('Longest game', r.longest_game_moves ? `${r.longest_game_moves} moves` : null, ''),
+            tile('Best month', r.best_month ? r.best_month.month : null,
+                r.best_month ? `${r.best_month.win}W-${r.best_month.loss}L-${r.best_month.draw}D` : ''),
+            tile('After a win', t.after_win.winrate != null ? `${t.after_win.winrate}%` : null,
+                `win rate · ${t.after_win.games} games`),
+            tile('After a loss', t.after_loss.winrate != null ? `${t.after_loss.winrate}%` : null,
+                `win rate · ${t.after_loss.games} games`,
+                t.after_loss.winrate < t.after_win.winrate - 5 ? 't-bad' : ''),
+            tile('Revenge games', t.revenge.winrate != null ? `${t.revenge.winrate}%` : null,
+                `rematch <5min after a loss · ${t.revenge.games}`),
+            tile('Vs expectations', p.overperformance > 0 ? `+${p.overperformance}` : p.overperformance,
+                `wins above Elo expectation (${p.games} rated)`,
+                p.overperformance >= 0 ? 't-good' : 't-bad'),
+            tile('Flagged losses', x.flagged_loss_pct != null ? `${x.flagged_loss_pct}%` : null,
+                'of live losses were on time', x.flagged_loss_pct > 25 ? 't-bad' : ''),
+        ];
+        el.innerHTML = tiles.join('');
+
+        new Chart(document.getElementById('chart-fatigue'), {
+            type: 'bar',
+            data: {
+                labels: t.fatigue_curve.map((b) =>
+                    b.game_in_session === 8 ? '8+' : String(b.game_in_session)),
+                datasets: [{
+                    label: 'win rate %',
+                    data: t.fatigue_curve.map((b) => b.winrate),
+                    backgroundColor: MODE_COLORS.blitz,
+                }],
+            },
+            options: {
+                scales: { y: { min: 0, max: 100, title: { display: true, text: '%' } } },
+                plugins: { tooltip: { callbacks: {
+                    afterLabel: (i) => `${t.fatigue_curve[i.dataIndex].games} games`,
+                } } },
+            },
+        });
+        new Chart(document.getElementById('chart-gap'), {
+            type: 'bar',
+            data: {
+                labels: p.vs_rating_gap.map((b) => b.label),
+                datasets: [{
+                    label: 'win rate %',
+                    data: p.vs_rating_gap.map((b) => b.winrate),
+                    backgroundColor: MODE_COLORS.rapid,
+                }],
+            },
+            options: {
+                scales: {
+                    y: { min: 0, max: 100, title: { display: true, text: '%' } },
+                    x: { title: { display: true, text: 'opponent rating − yours' } },
+                },
+                plugins: { tooltip: { callbacks: {
+                    afterLabel: (i) => `${p.vs_rating_gap[i.dataIndex].games} games`,
+                } } },
+            },
+        });
+    }
+
+    Promise.allSettled([ratingChart(), wldCharts(), openingsChart(), timeCharts(), qualityChart(), insightsSection()]).then(
         (results) =>
             results
                 .filter((r) => r.status === 'rejected')

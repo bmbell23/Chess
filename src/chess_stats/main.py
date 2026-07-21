@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 from .config import get_settings
 from .routes.analysis import router as analysis_router
 from .routes.charts import router as charts_router
+from .routes.insights import router as insights_router
 from .routes.sync import router as sync_router
 
 settings = get_settings()
@@ -49,6 +50,7 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 app.include_router(sync_router)
 app.include_router(charts_router)
 app.include_router(analysis_router)
+app.include_router(insights_router)
 
 
 @app.get("/health")
