@@ -514,6 +514,13 @@
             tile('Flagged losses', x.flagged_loss_pct != null ? `${x.flagged_loss_pct}%` : null,
                 'of live losses were on time', x.flagged_loss_pct > 25 ? 't-bad' : ''),
         ];
+        const sess = d.sessions;
+        if (sess) {
+            tiles.push(tile('Play sessions', sess.total_sessions,
+                `avg ${sess.avg_games_per_session} games · ${sess.avg_session_minutes}m`));
+            tiles.push(tile('Longest session', `${sess.longest_session_games} games`,
+                `${sess.multi_game_sessions} multi-game sessions`));
+        }
         el.innerHTML = tiles.join('');
 
         const rivalRow = (e, keyField, cls) =>
@@ -535,21 +542,26 @@
         }
         document.getElementById('rival-lists').innerHTML = lists.join('');
 
+        const pos = d.sessions?.by_position ?? [];
+        document.getElementById('session-title').textContent =
+            `Session performance — win rate by game # in session (>${d.sessions?.idle_gap_minutes ?? 15}m idle = new session)`;
         new Chart(document.getElementById('chart-fatigue'), {
             type: 'bar',
             data: {
-                labels: t.fatigue_curve.map((b) =>
-                    b.game_in_session === 8 ? '8+' : String(b.game_in_session)),
+                labels: pos.map((b) => (b.game === 10 ? '10+' : String(b.game))),
                 datasets: [{
                     label: 'win rate %',
-                    data: t.fatigue_curve.map((b) => b.winrate),
+                    data: pos.map((b) => b.winrate),
                     backgroundColor: MODE_COLORS.blitz,
                 }],
             },
             options: {
-                scales: { y: { min: 0, max: 100, title: { display: true, text: '%' } } },
+                scales: {
+                    y: { min: 0, max: 100, title: { display: true, text: '%' } },
+                    x: { title: { display: true, text: 'game # within session' } },
+                },
                 plugins: { tooltip: { callbacks: {
-                    afterLabel: (i) => `${t.fatigue_curve[i.dataIndex].games} games`,
+                    afterLabel: (i) => `${pos[i.dataIndex].games} games`,
                 } } },
             },
         });

@@ -19,7 +19,13 @@ router = APIRouter(prefix="/api/v1", tags=["insights"])
 
 LIVE_MODES = ("rapid", "blitz", "bullet")
 SESSION_GAP_S = 3600
+# session boundary = >15 min IDLE between games (start_next - end_prev); chosen
+# from the idle-gap distribution valley at 10-15 min (#26)
+SESSION_IDLE_GAP_S = 15 * 60
 REVENGE_GAP_S = 300
+_PGN_START = {
+    k: re.compile(r'\[' + k + r' "([^"]+)"\]') for k in ("UTCDate", "UTCTime")
+}
 _MOVENUM_RE = re.compile(r"(\d+)\.")
 
 SCORE = {"win": 1.0, "draw": 0.5, "loss": 0.0}
@@ -111,9 +117,7 @@ def insights(player: str | None = None) -> dict:
     # ---- tilt detector (live modes, chronological) ----
     after = {"win": {"win": 0, "n": 0}, "loss": {"win": 0, "n": 0}}
     revenge = {"win": 0, "n": 0}
-    fatigue: dict[int, dict] = defaultdict(lambda: {"win": 0, "n": 0})
     prev = None
-    session_idx = 0
     for g in live:
         if prev is not None:
             gap = (g.end_time - prev.end_time).total_seconds()
@@ -123,12 +127,6 @@ def insights(player: str | None = None) -> dict:
             if prev.result == "loss" and gap <= REVENGE_GAP_S:
                 revenge["n"] += 1
                 revenge["win"] += g.result == "win"
-            session_idx = session_idx + 1 if gap <= SESSION_GAP_S else 1
-        else:
-            session_idx = 1
-        bucket = min(session_idx, 8)  # 8 = "8th or later game of the session"
-        fatigue[bucket]["n"] += 1
-        fatigue[bucket]["win"] += g.result == "win"
         prev = g
 
     def pct(d):
@@ -138,10 +136,6 @@ def insights(player: str | None = None) -> dict:
         "after_win": {"winrate": pct(after["win"]), "games": after["win"]["n"]},
         "after_loss": {"winrate": pct(after["loss"]), "games": after["loss"]["n"]},
         "revenge": {"winrate": pct(revenge), "games": revenge["n"]},
-        "fatigue_curve": [
-            {"game_in_session": k, "winrate": pct(v), "games": v["n"]}
-            for k, v in sorted(fatigue.items())
-        ],
     }
 
     # ---- performance rating & expectations (rated w/ opponent rating) ----
@@ -206,6 +200,63 @@ def insights(player: str | None = None) -> dict:
         "performance": performance,
         "terminations": terminations,
         "rivals": _rivals(games),
+        "sessions": _session_perf(games),
+    }
+
+
+def _game_start(g):
+    """Start timestamp from PGN headers (live games); fall back to end_time."""
+    from datetime import datetime
+
+    if g.pgn:
+        d, t = _PGN_START["UTCDate"].search(g.pgn), _PGN_START["UTCTime"].search(g.pgn)
+        if d and t:
+            try:
+                return datetime.strptime(f"{d.group(1)} {t.group(1)}", "%Y.%m.%d %H:%M:%S")
+            except ValueError:
+                pass
+    return g.end_time
+
+
+def _session_perf(games) -> dict:
+    """Group live games into sessions (>15min idle = new session) and measure
+    win rate by game-position within a session — the warm-up/tire-out curve (#26)."""
+    live = sorted(
+        (g for g in games if g.time_class in LIVE_MODES), key=lambda g: g.end_time
+    )
+    sessions: list[list] = []
+    prev_end = None
+    for g in live:
+        if prev_end is None or (_game_start(g) - prev_end).total_seconds() > SESSION_IDLE_GAP_S:
+            sessions.append([])
+        sessions[-1].append(g)
+        prev_end = g.end_time
+
+    by_pos: dict[int, dict] = defaultdict(lambda: {"win": 0, "n": 0})
+    multi = [s for s in sessions if len(s) > 1]
+    for s in sessions:
+        for i, g in enumerate(s, 1):
+            bucket = min(i, 10)  # 10 = "10th or later game of the session"
+            by_pos[bucket]["n"] += 1
+            by_pos[bucket]["win"] += g.result == "win"
+
+    def pct(d):
+        return round(100 * d["win"] / d["n"], 1) if d["n"] else None
+
+    session_minutes = [
+        (s[-1].end_time - _game_start(s[0])).total_seconds() / 60 for s in sessions
+    ]
+    return {
+        "idle_gap_minutes": SESSION_IDLE_GAP_S // 60,
+        "total_sessions": len(sessions),
+        "multi_game_sessions": len(multi),
+        "avg_games_per_session": round(len(live) / len(sessions), 1) if sessions else 0,
+        "avg_session_minutes": round(sum(session_minutes) / len(sessions)) if sessions else 0,
+        "longest_session_games": max((len(s) for s in sessions), default=0),
+        "by_position": [
+            {"game": k, "winrate": pct(v), "games": v["n"]}
+            for k, v in sorted(by_pos.items())
+        ],
     }
 
 
