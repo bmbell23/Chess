@@ -78,6 +78,42 @@
             renderRating();
             renderQuality();
             renderVolume();
+            renderAcpl();
+        });
+    }
+
+    let acplRaw = null;
+    let acplInstance = null;
+
+    async function acplChart() {
+        acplRaw = await get('/api/v1/charts/acpl-trend');
+        renderAcpl();
+    }
+
+    function renderAcpl() {
+        if (!acplRaw) return;
+        const datasets = Object.entries(acplRaw.classes).map(([mode, pts]) => ({
+            label: mode,
+            data: pts.map((p) => ({ x: toMs(p.t), y: p.acpl })).filter((p) => inFrame(p.x)),
+            borderColor: MODE_COLORS[mode],
+            backgroundColor: MODE_COLORS[mode],
+            pointRadius: 0,
+            borderWidth: 2,
+            cubicInterpolationMode: 'monotone',
+        }));
+        if (acplInstance) acplInstance.destroy();
+        acplInstance = new Chart(document.getElementById('chart-acpl'), {
+            type: 'line',
+            data: { datasets },
+            options: {
+                scales: {
+                    x: { type: 'linear', ticks: { maxTicksLimit: 8, callback: (v) => shortDate(v) } },
+                    y: { title: { display: true, text: `avg centipawn loss (${acplRaw.window_games}-game rolling)` } },
+                },
+                plugins: { tooltip: { callbacks: {
+                    title: (items) => shortDate(items[0].parsed.x),
+                } } },
+            },
         });
     }
 
@@ -521,6 +557,16 @@
             tiles.push(tile('Longest session', `${sess.longest_session_games} games`,
                 `${sess.multi_game_sessions} multi-game sessions`));
         }
+        const q = d.quality;
+        if (q && q.available) {
+            tiles.push(tile('Avg centipawn loss', q.overall_acpl, `across ${q.analyzed} analyzed games`));
+            tiles.push(tile('Danger zone', q.danger_zone_move != null ? `move ${q.danger_zone_move}` : null,
+                'avg first mistake', 't-bad'));
+            tiles.push(tile('Comebacks', q.comebacks, 'won from a lost position', 't-good'));
+            tiles.push(tile('Collapses', q.collapses, 'lost from a winning one', 't-bad'));
+            tiles.push(tile('Conversion', q.conversion_rate != null ? `${q.conversion_rate}%` : null,
+                'winning positions won', q.conversion_rate >= 50 ? 't-good' : 't-bad'));
+        }
         el.innerHTML = tiles.join('');
 
         const rivalRow = (e, keyField, cls) =>
@@ -585,9 +631,37 @@
                 } } },
             },
         });
+
+        if (d.quality?.available) {
+            const ph = d.quality.phases;
+            new Chart(document.getElementById('chart-phase'), {
+                data: {
+                    labels: ph.map((x) => x.phase),
+                    datasets: [
+                        {
+                            type: 'bar', label: 'avg centipawn loss', yAxisID: 'y',
+                            data: ph.map((x) => x.acpl), backgroundColor: MODE_COLORS.bullet,
+                        },
+                        {
+                            type: 'line', label: 'blunder rate %', yAxisID: 'y1',
+                            data: ph.map((x) => x.blunder_rate),
+                            borderColor: WLD_COLORS.loss, backgroundColor: WLD_COLORS.loss,
+                            borderWidth: 2, pointRadius: 3,
+                        },
+                    ],
+                },
+                options: {
+                    scales: {
+                        y: { title: { display: true, text: 'ACPL' }, beginAtZero: true },
+                        y1: { position: 'right', title: { display: true, text: 'blunder %' },
+                              beginAtZero: true, grid: { drawOnChartArea: false } },
+                    },
+                },
+            });
+        }
     }
 
-    Promise.allSettled([ratingChart(), wldCharts(), openingsChart(), timeCharts(), qualityChart(), volumeChart(), insightsSection(), trainingSection()]).then(
+    Promise.allSettled([ratingChart(), wldCharts(), openingsChart(), timeCharts(), qualityChart(), acplChart(), volumeChart(), insightsSection(), trainingSection()]).then(
         (results) => {
             results
                 .filter((r) => r.status === 'rejected')

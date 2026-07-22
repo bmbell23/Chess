@@ -245,3 +245,30 @@ def daily_volume(player: str | None = None) -> dict:
             for d, v in sorted(per_day.items())
         ],
     }
+
+
+@router.get("/acpl-trend")
+def acpl_trend(player: str | None = None) -> dict:
+    """Rolling average centipawn loss per mode over time (lower = better). #15"""
+    from ..models import MoveStats
+
+    WINDOW = 20
+    with SessionLocal() as db:
+        pid = _player_id(db, player)
+        rows = db.execute(
+            select(Game.end_time, Game.time_class, MoveStats.acpl, MoveStats.moves)
+            .join(MoveStats, MoveStats.game_id == Game.id)
+            .where(Game.player_id == pid, MoveStats.acpl.is_not(None))
+            .order_by(Game.end_time)
+        ).all()
+    series: dict[str, list] = {m: [] for m in MODES}
+    per_mode: dict[str, list] = {m: [] for m in MODES}
+    for end_time, tc, acpl, moves in rows:
+        if tc not in per_mode:
+            continue
+        per_mode[tc].append((acpl, moves))
+        window = per_mode[tc][-WINDOW:]
+        tot_moves = sum(m for _, m in window) or 1
+        roll = sum(a * m for a, m in window) / tot_moves
+        series[tc].append({"t": end_time.isoformat(), "acpl": round(roll, 1)})
+    return {"classes": {m: v for m, v in series.items() if v}, "window_games": WINDOW}

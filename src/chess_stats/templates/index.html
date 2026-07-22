@@ -45,6 +45,12 @@
         <canvas id="chart-quality"></canvas>
         <button id="analyze-btn" class="btn" hidden>Analyze games</button>
     </div>
+    <div class="card chart-card chart-wide">
+        <h2>Average centipawn loss over time <span class="mode-sub">— lower = better</span></h2>
+        <p class="mode-sub">The coach's number: how far your moves stray from the engine's best,
+        rolling per mode. A falling line means you're genuinely improving.</p>
+        <canvas id="chart-acpl"></canvas>
+    </div>
     <div class="card chart-card">
         <h2>Win / draw / loss by mode</h2>
         <canvas id="chart-wld"></canvas>
@@ -85,6 +91,10 @@
             <div>
                 <h3>Win rate by opponent rating gap</h3>
                 <canvas id="chart-gap"></canvas>
+            </div>
+            <div>
+                <h3 id="phase-title">Accuracy by game phase</h3>
+                <canvas id="chart-phase"></canvas>
             </div>
         </div>
     </div>

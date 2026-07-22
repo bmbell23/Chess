@@ -44,6 +44,18 @@ def engine_available() -> bool:
     return shutil.which("stockfish") is not None
 
 
+def _phase(board: chess.Board) -> str:
+    """opening (<=10 fullmoves) / endgame (<=6 non-pawn pieces) / middlegame."""
+    if board.fullmove_number <= 10:
+        return "open"
+    non_pawn = sum(
+        1
+        for sq in chess.SQUARES
+        if (p := board.piece_at(sq)) and p.piece_type not in (chess.PAWN, chess.KING)
+    )
+    return "end" if non_pawn <= 6 else "mid"
+
+
 def _is_sacrifice(board: chess.Board, move: chess.Move) -> bool:
     """Naive: the moved piece (value >= 3) ends up capturable by a cheaper attacker."""
     piece = board.piece_at(move.from_square)
@@ -81,6 +93,11 @@ class Analyzer:
         moves = 0
         board = game.board()
 
+        cpl_sum = 0
+        first_bad = None
+        max_eval, min_eval = -MATE_SCORE, MATE_SCORE
+        phase = {p: {"cpl": 0, "moves": 0, "blunders": 0} for p in ("open", "mid", "end")}
+
         for node in game.mainline():
             move = node.move
             if board.turn != my_color:
@@ -92,6 +109,9 @@ class Analyzer:
             best_move = infos[0]["pv"][0]
             best_cp = self._cp(infos[0], my_color)
             moves += 1
+            ph = _phase(board)
+            loss = 0
+            is_blunder = False
 
             if move == best_move:
                 gap = (
@@ -105,13 +125,16 @@ class Analyzer:
                     counts["great"] += 1
                 else:
                     counts["best"] += 1
+                eval_after = best_cp
             else:
                 board.push(move)
                 after = self.engine.analyse(board, chess.engine.Limit(depth=self.depth))
                 board.pop()
-                loss = max(0, best_cp - self._cp(after, my_color))
+                eval_after = self._cp(after, my_color)
+                loss = max(0, best_cp - eval_after)
                 if loss >= 300:
                     counts["blunder"] += 1
+                    is_blunder = True
                 elif loss >= 100:
                     counts["mistake"] += 1
                 elif loss >= 50:
@@ -120,9 +143,36 @@ class Analyzer:
                     counts["good"] += 1
                 else:
                     counts["excellent"] += 1
+
+            capped_loss = min(loss, 1000)  # a single move's CPL is capped for sane averages
+            cpl_sum += capped_loss
+            phase[ph]["cpl"] += capped_loss
+            phase[ph]["moves"] += 1
+            if is_blunder:
+                phase[ph]["blunders"] += 1
+            if first_bad is None and loss >= 100:  # first mistake or blunder
+                first_bad = board.fullmove_number
+            capped_eval = max(-2000, min(2000, eval_after))
+            max_eval = max(max_eval, capped_eval)
+            min_eval = min(min_eval, capped_eval)
             board.push(move)
 
-        return {"moves": moves, **counts}
+        if moves == 0:
+            return None
+        return {
+            "moves": moves,
+            **counts,
+            "acpl": round(cpl_sum / moves, 1),
+            "first_bad_move": first_bad,
+            "max_eval": max_eval if max_eval != -MATE_SCORE else 0,
+            "min_eval": min_eval if min_eval != MATE_SCORE else 0,
+            "open_cpl": phase["open"]["cpl"], "open_moves": phase["open"]["moves"],
+            "open_blunders": phase["open"]["blunders"],
+            "mid_cpl": phase["mid"]["cpl"], "mid_moves": phase["mid"]["moves"],
+            "mid_blunders": phase["mid"]["blunders"],
+            "end_cpl": phase["end"]["cpl"], "end_moves": phase["end"]["moves"],
+            "end_blunders": phase["end"]["blunders"],
+        }
 
 
 def run_analysis(username: str | None = None) -> dict:
@@ -137,16 +187,17 @@ def run_analysis(username: str | None = None) -> dict:
                 ).scalar_one_or_none()
                 if player is None:
                     raise ValueError(f"player '{username}' not synced")
+                # games with no move_stats OR a pre-v2 row (acpl NULL → re-analyze)
                 pending = db.execute(
-                    select(Game)
+                    select(Game, MoveStats)
                     .outerjoin(MoveStats, MoveStats.game_id == Game.id)
                     .where(
                         Game.player_id == player.id,
                         Game.pgn.is_not(None),
-                        MoveStats.id.is_(None),
+                        (MoveStats.id.is_(None)) | (MoveStats.acpl.is_(None)),
                     )
                     .order_by(Game.end_time)
-                ).scalars().all()
+                ).all()
                 _progress(username, total=len(pending))
                 if not pending:
                     _progress(username, state="done")
@@ -155,12 +206,17 @@ def run_analysis(username: str | None = None) -> dict:
                 analyzer = Analyzer()
                 analyzed = skipped = 0
                 try:
-                    for i, game in enumerate(pending, 1):
+                    for i, (game, existing) in enumerate(pending, 1):
                         result = analyzer.analyze_game(
                             game.pgn, game.color == "white"
                         )
                         if result is None:
                             skipped += 1
+                        elif existing is not None:  # upgrade a pre-v2 row in place
+                            for k, v in result.items():
+                                setattr(existing, k, v)
+                            existing.depth = analyzer.depth
+                            analyzed += 1
                         else:
                             db.add(
                                 MoveStats(

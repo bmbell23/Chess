@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer
+from sqlalchemy import DateTime, Float, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..database import Base
@@ -31,3 +31,19 @@ class MoveStats(Base):
     inaccuracy: Mapped[int] = mapped_column(Integer, default=0)
     mistake: Mapped[int] = mapped_column(Integer, default=0)
     blunder: Mapped[int] = mapped_column(Integer, default=0)
+
+    # ---- Insights v2 (#15); NULL on rows from the pre-v2 analyzer → re-analyzed ----
+    acpl: Mapped[float | None] = mapped_column(Float)  # avg centipawn loss, player moves
+    first_bad_move: Mapped[int | None] = mapped_column(Integer)  # fullmove of 1st mistake/blunder
+    max_eval: Mapped[int | None] = mapped_column(Integer)  # best advantage reached (player POV, cp)
+    min_eval: Mapped[int | None] = mapped_column(Integer)  # worst deficit reached (player POV, cp)
+    # per-phase centipawn-loss sums + move counts + blunders (opening/middle/end)
+    open_cpl: Mapped[int | None] = mapped_column(Integer)
+    open_moves: Mapped[int | None] = mapped_column(Integer)
+    open_blunders: Mapped[int | None] = mapped_column(Integer)
+    mid_cpl: Mapped[int | None] = mapped_column(Integer)
+    mid_moves: Mapped[int | None] = mapped_column(Integer)
+    mid_blunders: Mapped[int | None] = mapped_column(Integer)
+    end_cpl: Mapped[int | None] = mapped_column(Integer)
+    end_moves: Mapped[int | None] = mapped_column(Integer)
+    end_blunders: Mapped[int | None] = mapped_column(Integer)

@@ -201,6 +201,69 @@ def insights(player: str | None = None) -> dict:
         "terminations": terminations,
         "rivals": _rivals(games),
         "sessions": _session_perf(games),
+        "quality": _quality(pid),
+    }
+
+
+def _quality(pid: int) -> dict:
+    """Engine-derived improvement metrics from move_stats v2 (#15)."""
+    from ..models import MoveStats
+
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(Game.result, MoveStats).join(
+                MoveStats, MoveStats.game_id == Game.id
+            ).where(Game.player_id == pid, MoveStats.acpl.is_not(None))
+        ).all()
+    if not rows:
+        return {"available": False}
+
+    tot_cpl = tot_moves = 0
+    phase = {p: {"cpl": 0, "moves": 0, "blunders": 0} for p in ("open", "mid", "end")}
+    first_bad = []
+    comebacks = collapses = 0
+    had_advantage = converted = was_losing = saved = 0
+    for result, m in rows:
+        tot_cpl += (m.acpl or 0) * m.moves
+        tot_moves += m.moves
+        for p in ("open", "mid", "end"):
+            phase[p]["cpl"] += getattr(m, f"{p}_cpl") or 0
+            phase[p]["moves"] += getattr(m, f"{p}_moves") or 0
+            phase[p]["blunders"] += getattr(m, f"{p}_blunders") or 0
+        if m.first_bad_move:
+            first_bad.append(m.first_bad_move)
+        if (m.max_eval or 0) >= 300:
+            had_advantage += 1
+            if result == "win":
+                converted += 1
+        if (m.min_eval or 0) <= -300:
+            was_losing += 1
+            if result != "loss":
+                saved += 1
+            if result == "win":
+                comebacks += 1
+        if (m.max_eval or 0) >= 300 and result == "loss":
+            collapses += 1
+
+    def avg_cpl(p):
+        return round(phase[p]["cpl"] / phase[p]["moves"]) if phase[p]["moves"] else None
+
+    def blunder_rate(p):
+        return round(100 * phase[p]["blunders"] / phase[p]["moves"], 1) if phase[p]["moves"] else None
+
+    return {
+        "available": True,
+        "overall_acpl": round(tot_cpl / tot_moves) if tot_moves else None,
+        "phases": [
+            {"phase": name, "acpl": avg_cpl(key), "blunder_rate": blunder_rate(key)}
+            for name, key in (("Opening", "open"), ("Middlegame", "mid"), ("Endgame", "end"))
+        ],
+        "comebacks": comebacks,
+        "collapses": collapses,
+        "conversion_rate": round(100 * converted / had_advantage, 1) if had_advantage else None,
+        "save_rate": round(100 * saved / was_losing, 1) if was_losing else None,
+        "danger_zone_move": round(sum(first_bad) / len(first_bad), 1) if first_bad else None,
+        "analyzed": len(rows),
     }
 
 
