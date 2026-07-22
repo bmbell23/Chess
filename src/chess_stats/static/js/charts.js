@@ -421,6 +421,37 @@
                `<div class="t-sub">${sub ?? ''}</div></div>`;
     }
 
+    async function trainingSection() {
+        let d;
+        try {
+            d = await get('/api/v1/training');
+        } catch {
+            return; // unofficial source down — card stays hidden
+        }
+        if (!d.available) return;
+        const tiles = [];
+        if (d.puzzles) {
+            const p = d.puzzles;
+            tiles.push(tile('Puzzle pass rate', p.pass_rate != null ? `${p.pass_rate}%` : null,
+                `${p.passed} of ${p.attempts} solved`, 't-good'));
+            tiles.push(tile('Puzzle rating', p.rating, `best ${p.highest_rating}`));
+            if (p.avg_seconds != null)
+                tiles.push(tile('Avg solve time', `${p.avg_seconds}s`, 'per puzzle'));
+            if (p.seconds_spent)
+                tiles.push(tile('Time on puzzles', fmtDuration(p.seconds_spent / 60),
+                    `${p.failed} failed`));
+        }
+        if (d.puzzle_rush)
+            tiles.push(tile('Puzzle Rush best', d.puzzle_rush.best, d.puzzle_rush.mode || ''));
+        if (d.lessons)
+            tiles.push(tile('Lessons progress', `${d.lessons.progress}%`,
+                `${d.lessons.level} level`, 't-good'));
+        if (tiles.length) {
+            document.getElementById('training-tiles').innerHTML = tiles.join('');
+            document.getElementById('training-card').hidden = false;
+        }
+    }
+
     const fmtDuration = (min) => {
         const h = Math.floor(min / 60);
         return h ? `${h}h ${Math.round(min % 60)}m` : `${Math.round(min)}m`;
@@ -544,7 +575,7 @@
         });
     }
 
-    Promise.allSettled([ratingChart(), wldCharts(), openingsChart(), timeCharts(), qualityChart(), volumeChart(), insightsSection()]).then(
+    Promise.allSettled([ratingChart(), wldCharts(), openingsChart(), timeCharts(), qualityChart(), volumeChart(), insightsSection(), trainingSection()]).then(
         (results) => {
             results
                 .filter((r) => r.status === 'rejected')
