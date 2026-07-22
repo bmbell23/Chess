@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Achievements — {{ settings.app_name }}{% endblock %}
+{% block content %}
+<div id="recap" class="recap" hidden></div>
+
+<section class="ach-head">
+    <h1>{{ 'Achievements' if is_default else player + "'s Achievements" }}</h1>
+    <div class="score-box">
+        <div class="score-num" id="score">—</div>
+        <div class="score-sub" id="score-sub"></div>
+    </div>
+</section>
+
+<div class="cat-filter" id="cat-filter"></div>
+<div id="ach-grid"></div>
+
+<meta name="player" content="{{ '' if is_default else player }}">
+<script src="/static/js/achievements.js"></script>
+{% endblock %}

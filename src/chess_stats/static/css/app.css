@@ -176,3 +176,51 @@ main { padding: 1.25rem; max-width: 960px; margin: 0 auto; }
 .mode-name { text-transform: capitalize; color: #9aa3af; font-size: 0.85rem; }
 .mode-rating { font-size: 2rem; font-weight: 700; color: var(--accent); }
 .mode-sub { font-size: 0.8rem; color: #9aa3af; }
+
+/* ---- nav + achievements (#16) ---- */
+.topnav { display: flex; gap: 1rem; margin-left: 1.5rem; flex: 1; }
+.topnav a { color: #9aa3af; text-decoration: none; font-size: 0.95rem; padding: 0.25rem 0; }
+.topnav a:hover { color: var(--text); }
+.topnav a.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+
+.recap {
+    background: linear-gradient(90deg, #2a3a1e, #1e232b);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 0.9rem 1.1rem;
+    margin-bottom: 1rem;
+}
+
+.ach-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+.score-box { text-align: right; }
+.score-num { font-size: 2.2rem; font-weight: 800; color: var(--accent); line-height: 1; }
+.score-sub { font-size: 0.8rem; color: #9aa3af; }
+
+.cat-filter { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; }
+.cat-meta { opacity: 0.7; font-size: 0.75rem; }
+
+.ach-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.6rem;
+}
+.ach-card {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid #2a313c;
+}
+.ach-card.locked { opacity: 0.55; }
+.ach-card.earned { border-color: rgba(129,182,76,0.5); }
+.ach-icon { font-size: 1.6rem; width: 2rem; text-align: center; }
+.ach-body { flex: 1; min-width: 0; }
+.ach-name { font-weight: 600; color: var(--text); }
+.ach-desc { font-size: 0.78rem; color: #9aa3af; }
+.ach-pts { font-weight: 700; color: var(--accent); font-size: 1.1rem; }
+.ach-card.locked .ach-pts { color: #6b7280; }
+.ach-bar { height: 5px; background: var(--bg); border-radius: 3px; margin-top: 0.35rem; overflow: hidden; }
+.ach-bar-fill { height: 100%; background: var(--accent); }
+.ach-prog { font-size: 0.72rem; color: #9aa3af; margin-top: 0.2rem; }
