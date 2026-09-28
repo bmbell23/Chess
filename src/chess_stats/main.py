@@ -91,3 +91,27 @@ def achievements_page(request: Request, player: str | None = None):
     return templates.TemplateResponse(
         request, "achievements.html", {**ctx, "active": "achievements"}
     )
+
+
+@app.get("/about", response_class=HTMLResponse)
+def about_page(request: Request, player: str | None = None):
+    from sqlalchemy import func, select
+
+    from .database import SessionLocal
+    from .models import Game, MoveStats, Player
+
+    ctx = _page_ctx(player)
+    with SessionLocal() as db:
+        pl = db.execute(
+            select(Player).where(Player.username == ctx["player"])
+        ).scalar_one_or_none()
+        brilliants = 0
+        if pl:
+            brilliants = db.execute(
+                select(func.coalesce(func.sum(MoveStats.brilliant), 0))
+                .join(Game, MoveStats.game_id == Game.id)
+                .where(Game.player_id == pl.id)
+            ).scalar_one()
+    return templates.TemplateResponse(
+        request, "about.html", {**ctx, "active": "about", "brilliants": brilliants}
+    )

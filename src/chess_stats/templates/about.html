@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}About — {{ settings.app_name }}{% endblock %}
+{% block content %}
+<div class="about">
+    <h1>About {{ settings.app_name }}</h1>
+    <p class="lead">A self-hosted chess.com analytics dashboard. Everything here is
+    computed from your own game history and a local chess engine — no chess.com
+    login, no data leaves the server.</p>
+
+    <section class="card about-card">
+        <h2>Where the data comes from</h2>
+        <p>Game history, ratings, and results come from the
+        <a href="https://www.chess.com/news/view/published-data-api" target="_blank" rel="noopener">chess.com
+        Published-Data API</a> — a public, read-only, no-key API. We pull your
+        monthly game archives one request at a time (chess.com asks clients to be
+        polite), and because past months never change we fetch each one once and
+        cache it forever in a local SQLite database. Only the current month is
+        re-checked on each sync.</p>
+        <p>Puzzle and lesson stats come from chess.com's unofficial website
+        endpoints (also no login). They're best-effort — if they ever change,
+        those cards simply disappear and nothing else breaks.</p>
+    </section>
+
+    <section class="card about-card">
+        <h2>The pipeline</h2>
+        <ol class="pipeline">
+            <li><strong>Sync</strong> — pull new games &amp; rating snapshots into SQLite (daily, plus a "Sync now" button).</li>
+            <li><strong>Analyze</strong> — run every game through <strong>Stockfish</strong> and classify each of your moves.</li>
+            <li><strong>Aggregate</strong> — the charts and insights are live SQL queries over that stored data.</li>
+        </ol>
+        <p>It all runs in a Docker container on a home server; the app is a Python
+        (FastAPI) backend rendering these pages, with charts drawn client-side by a
+        vendored copy of Chart.js.</p>
+    </section>
+
+    <section class="card about-card">
+        <h2>How the Stockfish analysis works</h2>
+        <p>Every stored game is replayed move-by-move through
+        <strong>Stockfish</strong> (the strongest open-source chess engine), running
+        <em>inside the container</em> at a "balanced" search depth of ~10 with the top
+        two candidate moves considered. For each of <em>your</em> moves we ask the
+        engine for its best move and compare:</p>
+        <ul class="cpl-list">
+            <li>If you played the engine's top move → <strong>Best</strong> (or <strong>Great</strong>/<strong>Brilliant</strong>, see below).</li>
+            <li>Otherwise we measure <strong>centipawn loss</strong> — how much worse your move was than the best, in hundredths of a pawn — and bucket it:</li>
+        </ul>
+        <table class="cpl-table">
+            <tr><td>&lt; 20 cp</td><td>Excellent</td></tr>
+            <tr><td>20–49 cp</td><td>Good</td></tr>
+            <tr><td>50–99 cp</td><td>Inaccuracy</td></tr>
+            <tr><td>100–299 cp</td><td>Mistake</td></tr>
+            <tr><td>≥ 300 cp</td><td>Blunder</td></tr>
+        </table>
+        <p><strong>Average centipawn loss (ACPL)</strong> — the average of those losses
+        across a game — is the number coaches actually track. Lower is better; a
+        falling ACPL trend is the clearest sign you're genuinely improving. We also
+        split it by phase (opening / middlegame / endgame) and record each game's
+        eval swing so we can spot comebacks (won from ≥3 pawns down) and collapses
+        (lost from ≥3 pawns up).</p>
+    </section>
+
+    <section class="card about-card highlight">
+        <h2>How this differs from chess.com</h2>
+        <p>These labels are <strong>our approximation</strong> of chess.com's Game
+        Review, not a copy of it. chess.com doesn't expose per-move analysis through
+        any API, so we compute our own — and a few things differ on purpose:</p>
+        <ul>
+            <li><strong>We flag far more "Brilliant" moves</strong> (you currently have
+            {{ brilliants }}, well above what chess.com's review would credit). Our
+            "Brilliant" = you found the only strong move <em>and</em> it involved a
+            material sacrifice. chess.com's definition is stricter and more secretive,
+            so their count is lower. Take our brilliancies as "nice sacrifices you
+            found," not as an official chess.com tally.</li>
+            <li><strong>Our ratings chart uses rated games only</strong> and is built
+            from your actual per-game ratings, so it can differ slightly from
+            chess.com's graph.</li>
+            <li><strong>Our streak is a game-day streak</strong> — chess.com's is higher
+            because it also counts puzzle and lesson days.</li>
+            <li>Depth ~10 is shallower than chess.com's server-side review, so exact
+            centipawn numbers won't match theirs move-for-move — but the
+            <em>trends</em> (are you blundering less? improving your ACPL?) are what
+            matter, and those are sound.</li>
+        </ul>
+    </section>
+
+    <p class="mode-sub">Built with Claude Code. Open source spirit: your data, your
+    server, your engine.</p>
+</div>
+{% endblock %}

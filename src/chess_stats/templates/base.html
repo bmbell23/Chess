@@ -17,6 +17,7 @@
         <nav class="topnav">
             <a href="/{{ pq }}" class="{{ 'active' if active == 'overview' }}">Overview</a>
             <a href="/achievements{{ pq }}" class="{{ 'active' if active == 'achievements' }}">Achievements</a>
+            <a href="/about" class="{{ 'active' if active == 'about' }}">About</a>
         </nav>
         <form class="player-search" action="{{ '/achievements' if active == 'achievements' else '/' }}" method="get">
             <input type="search" name="player" autocomplete="off" spellcheck="false"
