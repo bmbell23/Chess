@@ -4,7 +4,13 @@ import threading
 from fastapi import APIRouter, HTTPException
 
 from ..services.chesscom_client import PlayerNotFound
-from ..services.sync import SYNC_PROGRESS, SyncService, normalize_username, sync_status
+from ..services.sync import (
+    SYNC_PROGRESS,
+    SyncService,
+    nightly_targets,
+    normalize_username,
+    sync_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,3 +59,9 @@ def progress(player: str | None = None) -> dict:
 @router.get("/status")
 def status(player: str | None = None) -> dict:
     return sync_status(player)
+
+
+@router.get("/targets")
+def targets(player: str | None = None) -> dict:
+    """Who the nightly Dagu job syncs, in order (#28)."""
+    return {"targets": nightly_targets(player)}

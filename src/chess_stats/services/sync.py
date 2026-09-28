@@ -4,7 +4,7 @@ import logging
 import re
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
@@ -282,3 +282,46 @@ def sync_status(username: str | None = None) -> dict:
             "total_games": total_games,
             "latest_ratings": latest,
         }
+
+
+# Nightly sync (#28): the root player first, then everyone already tracked,
+# then the root's real rivals. A rival needs RIVAL_MIN_GAMES head-to-head games
+# with at least one rated (bots only play unrated, so this drops Coach-* etc.).
+RIVAL_MIN_GAMES = 3
+RIVAL_LIMIT = 10
+
+
+def nightly_targets(root: str | None = None) -> list[dict]:
+    root = normalize_username(root)
+    targets = [{"player": root, "reason": "root"}]
+    seen = {root}
+    with SessionLocal() as db:
+        for (username,) in db.execute(select(Player.username).order_by(Player.id)):
+            if username not in seen:
+                seen.add(username)
+                targets.append({"player": username, "reason": "tracked"})
+        rivals = db.execute(
+            select(
+                func.lower(Game.opponent),
+                func.count(Game.id),
+                func.sum(case((Game.result == "win", 1), else_=0)),
+                func.sum(case((Game.result == "loss", 1), else_=0)),
+            )
+            .join(Player, Game.player_id == Player.id)
+            .where(Player.username == root, Game.opponent.is_not(None))
+            .group_by(func.lower(Game.opponent))
+            .having(
+                func.count(Game.id) >= RIVAL_MIN_GAMES,
+                func.sum(case((Game.rated, 1), else_=0)) > 0,
+            )
+            .order_by(func.count(Game.id).desc())
+            .limit(RIVAL_LIMIT)
+        ).all()
+    for opponent, games, wins, losses in rivals:
+        if opponent in seen:
+            continue
+        seen.add(opponent)
+        targets.append(
+            {"player": opponent, "reason": f"rival ({games} games, {wins}W-{losses}L)"}
+        )
+    return targets
