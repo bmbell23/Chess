@@ -13,7 +13,7 @@ services:
       - PORT=8011
       - TZ=America/Denver
       - DATABASE_URL=sqlite:////app/data/chess.db
-      - ENABLE_SCHEDULERS=true
+      - ENABLE_SCHEDULERS=false  # nightly sync runs from Dagu (#28)
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs

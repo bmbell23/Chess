@@ -38,7 +38,7 @@ Repo: https://github.com/bmbell23/Chess · Board: **Project #7 "Chess"**
 - **Host port: 8011** (next free in the app block; record in `.augment-guidelines` inventory when the container first comes up)
 - Container: `chess_app`, network `chess_network`, URL `http://100.69.184.113:8011`
 - Stack: Python 3.11 · FastAPI · SQLAlchemy · SQLite (`data/chess.db`) · Alembic · Jinja2 + vanilla JS with vendored Chart.js
-- Background sync: APScheduler in `lifespan()`, gated by `ENABLE_SCHEDULERS=true`
+- Background sync: Dagu DAG `chess-nightly-sync` (03:00) runs `scripts/nightly-sync.sh` → root player, tracked players, rivals (`/api/v1/sync/targets`). The in-app APScheduler (`ENABLE_SCHEDULERS=true`) is off in compose (#28)
 - Android: LifeForge-style self-updating WebView APK (later, once the web app is useful)
 
 ## chess.com Published-Data API (public, read-only, **no API key**)
