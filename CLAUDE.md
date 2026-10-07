@@ -35,10 +35,11 @@ Repo: https://github.com/bmbell23/Chess · Board: **Project #7 "Chess"**
 - Remind the user of In-Review tickets at every task transition.
 
 ## Project facts
-- **Host port: 8011** (next free in the app block; record in `.augment-guidelines` inventory when the container first comes up)
-- Container: `chess_app`, network `chess_network`, URL `http://100.69.184.113:8011`
+- **Runs on k3s** (pve01, namespace `chess`, manifests in `bmbell23/proxmox` `k8s/apps/chess/`): `http://chess.10.0.0.201.sslip.io` (agent-bus thread 024).
+- Releases: a `v*` tag (from `ship-pr`) builds and publishes `ghcr.io/bmbell23/chess:<version>` (`.github/workflows/image.yml`, #33); Peter pins the new `version@sha256` in k3s. There is no `./deploy` (#35): merging never restarts anything.
+- The old dockerhost container `chess_app` (:8011, `docker-compose.yml`) is stopped, kept for rollback only (docker#150).
 - Stack: Python 3.11 · FastAPI · SQLAlchemy · SQLite (`data/chess.db`) · Alembic · Jinja2 + vanilla JS with vendored Chart.js
-- Background sync: Dagu DAG `chess-nightly-sync` (03:00) runs `scripts/nightly-sync.sh` → root player, tracked players, rivals (`/api/v1/sync/targets`). The in-app APScheduler (`ENABLE_SCHEDULERS=true`) is off in compose (#28)
+- Background sync: k3s CronJob (03:30) runs `scripts/nightly-sync.sh` → root player, tracked players, rivals (`/api/v1/sync/targets`). The in-app APScheduler (`ENABLE_SCHEDULERS=true`) stays off (#28)
 - Android: LifeForge-style self-updating WebView APK (later, once the web app is useful)
 
 ## chess.com Published-Data API (public, read-only, **no API key**)
